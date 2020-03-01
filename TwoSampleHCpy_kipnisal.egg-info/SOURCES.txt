@@ -1,6 +1,0 @@
-README.md
-setup.py
-TwoSampleHCpy_kipnisal.egg-info/PKG-INFO
-TwoSampleHCpy_kipnisal.egg-info/SOURCES.txt
-TwoSampleHCpy_kipnisal.egg-info/dependency_links.txt
-TwoSampleHCpy_kipnisal.egg-info/top_level.txt
