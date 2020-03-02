@@ -1,3 +1,7 @@
+from TwoSampleHC import two_sample_pvals
+from TwoSampleHC import hc_vals
+import numpy as np
+
 N = 10000 # number of features
 n = 5 * N #number of samples
 
