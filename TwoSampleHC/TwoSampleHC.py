@@ -211,19 +211,20 @@ def two_sample_test_df(X, Y, alpha=0.25,
 
 def hc_vals_full(pv, alpha=0.25):
     """
-    Higher Criticism test with intermediate computation information
-    (see
+    Higher Criticism test with additional information and different
+    versions.  (see
     [1] Donoho, D. L. and Jin, J.,
      "Higher criticism for detecting sparse hetrogenous mixtures", 
-     Annals of Stat. 2004
-    )
+     Annals of Stat. 2004)
 
-    Parameters:
-        pv -- list of p-values. P-values that are np.nan are exluded.
-        alpha -- lower fruction of p-values to use.
+    Args:
+    -----
+    pv : list of p-values. P-values that are np.nan are exluded.
+    alpha : lower fruction of p-values to use.
         
     Return :
-        df -- DataFrame with fields describing HC computation
+    ------
+    df : DataFrame with fields describing HC computation
 
     """
     pv = np.asarray(pv)
