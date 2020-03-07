@@ -28,9 +28,10 @@ def hc_vals(pv, alpha=0.25, minPv='1/n', stbl=True):
                  uniform distribution.
 
     """
+    EPS = 0.001
     pv = np.asarray(pv)
-    n = len(pv)  #number of features including NA
-    pv = pv[~np.isnan(pv)]  
+    n = len(pv)  #number of features
+    pv[~np.isnan(pv)] = 1-EPS
     #n = len(pv)
     hc_star = np.nan
     p_star = np.nan
@@ -39,14 +40,14 @@ def hc_vals(pv, alpha=0.25, minPv='1/n', stbl=True):
         ps_idx = np.argsort(pv)
         ps = pv[ps_idx]  #sorted pvals
 
-        uu = np.linspace(1 / n, 0.999, n)  #expectation of p-values under H0
+        uu = np.linspace(1 / n, 1-EPS, n)  #expectation of p-values under H0
         i_lim_up = np.maximum(int(np.floor(alpha * n + 0.5)), 1)
 
         ps = ps[:i_lim_up]
         uu = uu[:i_lim_up]
         
         if minPv == '1/n' :
-            i_lim_low = np.argmax(ps > 0.999/n)
+            i_lim_low = np.argmax(ps > (1-EPS)/n)
         else :
             i_lim_low = minPv
 
