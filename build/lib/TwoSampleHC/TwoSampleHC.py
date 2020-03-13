@@ -167,7 +167,12 @@ def two_sample_pvals(c1, c2, randomize=False):
     # feature by feature exact binomial test
     T1 = c1.sum()
     T2 = c2.sum()
-    p = (T1 - c1) / (T1 + T2 - c1 - c2)
+
+    den = (T1 + T2 - c1 - c2)
+    if den.sum() == 0 :
+        return c1 * np.nan
+
+    p = (T1 - c1) / den
 
     if randomize :
         pvals = binom_test_two_sided_random(c1, c1 + c2, p)

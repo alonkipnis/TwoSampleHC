@@ -29,9 +29,9 @@ def hc_vals(pv, alpha=0.25, minPv='1/n', stbl=True):
 
     """
     EPS = 0.001
-    pv = np.asarray(pv)
+    pv = np.asarray(pv).copy()
     n = len(pv)  #number of features
-    pv[~np.isnan(pv)] = 1-EPS
+    pv[np.isnan(pv)] = 1-EPS
     #n = len(pv)
     hc_star = np.nan
     p_star = np.nan
@@ -167,10 +167,12 @@ def two_sample_pvals(c1, c2, randomize=False):
     # feature by feature exact binomial test
     T1 = c1.sum()
     T2 = c2.sum()
-    den = (T1 + T2 - c1 - c2)
 
+    den = (T1 + T2 - c1 - c2)
     if den.sum() == 0 :
         return c1 * np.nan
+
+    p = (T1 - c1) / den
 
     if randomize :
         pvals = binom_test_two_sided_random(c1, c1 + c2, p)
