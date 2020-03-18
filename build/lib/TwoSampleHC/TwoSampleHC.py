@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import binom, norm, poisson
 
-def hc_vals(pv, alpha=0.25, minPv='1/n', stbl=True):
+def hc_vals(pv, alpha=0.25, minPv='one_over_n', stbl=True):
     """
     Higher Criticism test (see
     [1] Donoho, D. L. and Jin, J.,
@@ -18,20 +18,20 @@ def hc_vals(pv, alpha=0.25, minPv='1/n', stbl=True):
         alpha -- lower fruction of p-values to use.
         stbl -- use expected p-value ordering (stbl=True) or observed 
                 (stbl=False)
-        minPv -- integer or string '1/n' (default). Ignote smallest
-                 minPv-1 when computing HC score.
+        minPv -- integer or string 'one_over_n' (default).
+                 Ignote smallest minPv-1 when computing HC score.
 
     Return :
-        hc_star -- sample adapted HC (HC\dagger in [1])
+        hc_star -- sample adapted HC (HC dagger in [1])
         p_star -- HC threshold: upper boundary for collection of
                  p-value indicating the largest deviation from the
                  uniform distribution.
 
     """
     EPS = 0.001
-    pv = np.asarray(pv)
+    pv = np.asarray(pv).copy()
     n = len(pv)  #number of features
-    pv[~np.isnan(pv)] = 1-EPS
+    pv[np.isnan(pv)] = 1-EPS
     #n = len(pv)
     hc_star = np.nan
     p_star = np.nan
@@ -46,7 +46,7 @@ def hc_vals(pv, alpha=0.25, minPv='1/n', stbl=True):
         ps = ps[:i_lim_up]
         uu = uu[:i_lim_up]
         
-        if minPv == '1/n' :
+        if minPv == 'one_over_n' :
             i_lim_low = np.argmax(ps > (1-EPS)/n)
         else :
             i_lim_low = minPv
@@ -66,6 +66,7 @@ def hc_vals(pv, alpha=0.25, minPv='1/n', stbl=True):
         p_star = ps[i_max_star]
 
     return hc_star, p_star
+
 
 def binom_test_two_sided_slow(x, n, p) :
     """
