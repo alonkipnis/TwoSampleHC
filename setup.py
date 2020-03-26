@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="TwoSampleHC", 
-    version="0.0.14",
+    version="0.0.15",
     author="Alon Kipnis",
     author_email="alonkipnis@gmail.com",
     description="Two-sample Higher Criticism",

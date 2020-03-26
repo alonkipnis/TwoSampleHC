@@ -13,17 +13,19 @@ def hc_vals(pv, alpha=0.25, minPv='one_over_n', stbl=True):
     of the national academy of sciences, 2008.
      )
 
-    Parameters:
-        pv -- list of p-values. P-values that are np.nan are exluded.
-        alpha -- lower fruction of p-values to use.
-        stbl -- use expected p-value ordering (stbl=True) or observed 
+    Args:
+    -----
+        pv : list of p-values. P-values that are np.nan are exluded.
+        alpha : lower fruction of p-values to use.
+        stbl : use expected p-value ordering (stbl=True) or observed 
                 (stbl=False)
-        minPv -- integer or string 'one_over_n' (default).
+        minPv : integer or string 'one_over_n' (default).
                  Ignote smallest minPv-1 when computing HC score.
 
     Return :
-        hc_star -- sample adapted HC (HC dagger in [1])
-        p_star -- HC threshold: upper boundary for collection of
+    -------
+        hc_star : sample adapted HC (HC dagger in [1])
+        p_star : HC threshold: upper boundary for collection of
                  p-value indicating the largest deviation from the
                  uniform distribution.
 
@@ -95,7 +97,6 @@ def poisson_test_random(x, lmd) :
     prob = np.minimum(p_down + (p_up-p_down)*U, 1)
     return prob * (n != 0) + U * (n == 0)
 
-
 def binom_test_two_sided(x, n, p) :
     """
     Returns:
@@ -119,9 +120,9 @@ def binom_test_two_sided(x, n, p) :
 def binom_test_two_sided_random(x, n, p) :
     """
     Returns:
-    pval  -- random number such that 
-               Prob(|Bin(n,p) - np| >= 
-                |InvCDF(pval|Bin(n,p)) - n p|) ~ U(0,1)
+    pval  : random number such that 
+            Prob(|Bin(n,p) - np| >= 
+            |InvCDF(pval|Bin(n,p)) - n p|) ~ U(0,1)
     """
 
     x_low = n * p - np.abs(x-n*p)
@@ -164,8 +165,16 @@ def two_sample_test(X, Y, alpha=0.25,
     return hc_star, p_thresh
 
 
-def two_sample_pvals(c1, c2, randomize=False):
-    # feature by feature exact binomial test
+def two_sample_pvals(c1, c2, randomize=False, sym=False):
+
+    """ feature by feature exact binomial test
+    Args:
+    ----
+    c1, c2 : list of integers represents count data from two sample
+    randomize : flag indicate wether to use randomized P-values
+    sym : flag indicates wether the size of both sample is assumed
+          identical
+    """
     T1 = c1.sum()
     T2 = c2.sum()
 
@@ -173,7 +182,7 @@ def two_sample_pvals(c1, c2, randomize=False):
     if den.sum() == 0 :
         return c1 * np.nan
 
-    p = (T1 - c1) / den
+    p = ((T1 - c1) / den)*(1-sym) + sym * 1./2
 
     if randomize :
         pvals = binom_test_two_sided_random(c1, c1 + c2, p)

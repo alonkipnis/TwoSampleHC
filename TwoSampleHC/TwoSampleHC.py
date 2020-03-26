@@ -1,4 +1,3 @@
-import pandas as pd
 import numpy as np
 from scipy.stats import binom, norm, poisson
 
@@ -192,13 +191,40 @@ def two_sample_pvals(c1, c2, randomize=False, sym=False):
 
     return pvals
 
-
 def two_sample_test_df(X, Y, alpha=0.25,
                 stbl=True, randomize=False):
     """
     Same as two_sample_test but returns all information for computing
-     HC score of the two samples. Requires pandas.
+    HC score of the two samples as a pandas data DataFrame. 
+    Requires pandas.
+
+    Args: 
+    -----
+    X, Y : lists of integers of equal length
+    alpha : parameter of HC statistic
+    stbl : parameter of HC statistic
+    randomize : use randomized or not exact binomial test
+
+    Returns:
+    -------
+    counts : DataFrame with fields: 
+            n1, n2, p, T1, T2, pval, sign, HC, thresh
+            Here: 
+            -----
+            'n1' <- X
+            'n2' <- Y
+            'T1' <- sum(X)
+            'T2' <- sum(Y)
+            'p' <- (T1 - n1) / (T1+ T2 - n1 - n2)
+            'pval' <- binom_test(n1, n1 + n2, p) (P-value of test)
+            'sign' : designates if feature is more frequent in sample X 
+                     (+1) or sample Y (-1)
+            'HC' : is the higher criticism statistic applies to the
+                 column 'pval'
+            'thresh' : designates wether the feature is below the HC 
+            threshold (True) or not (False)
     """
+    import pandas as pd
 
     counts = pd.DataFrame()
     counts['n1'] = X
