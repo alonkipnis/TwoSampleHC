@@ -1,6 +1,101 @@
-import pandas as pd
 import numpy as np
 from scipy.stats import binom, norm, poisson
+
+class HC(object) :
+    """
+    Higher Criticism test (see
+    [1] Donoho, D. L. and Jin, J.,
+     "Higher criticism for detecting sparse hetrogenous mixtures", 
+     Annals of Stat. 2004
+    [2] Donoho, D. L. and Jin, J. "Higher critcism thresholding: Optimal 
+    feature selection when useful features are rare and weak", proceedings
+    of the national academy of sciences, 2008.
+     )
+
+    Args:
+    -----
+        pvals : list of p-values. P-values that are np.nan are exluded.
+        stbl : normalize by expected P-values (stbl=True) or observed 
+                P-values (stbl=False). stbl=True was suggested in [2].
+                stbl=False in [1]. 
+        alpha : lower fruction of p-values to use.
+        
+    Methods :
+    -------
+        HC : HC and P-value attaining it
+        HCstar : sample adjustet HC (HC\dagger in [1])
+        
+
+    """
+    def __init__(self, pvals, stbl=True) :
+
+        self._N = len(pvals)
+        assert(self._N >0)
+
+        EPS = 1 / self._N
+        self._EPS = EPS
+
+        self._pvals = np.sort(np.asarray(pvals.copy()))
+        self._uu = np.linspace(1 / self._N, 1-EPS, self._N)
+    
+        if stbl:
+            denom = np.sqrt(self._uu * (1 - self._uu)) 
+        else:
+            denom = np.sqrt(self._pvals * (1 - self._pvals)) 
+
+        denom = np.maximum(denom, EPS)
+        self._zz = np.sqrt(self._N) * (self._uu - self._pvals) / denom 
+
+    def _calculateHC(self, imin, imax) :
+        if imin > imax :
+            return np.nan
+        istar = np.argmax(self._zz[imin:imax]) + imin
+        zMaxStar = self._zz[istar]
+        return zMaxStar, self._pvals[istar]
+
+    def HC(self, alpha=0.2) : 
+        """higher criticism score
+
+        Args:
+        -----
+        'alpha' : lower fraction of P-values to consider
+
+        Returns:
+        -------
+        HC score, P-value attaining it
+
+        """
+        imin = 0
+        imax = np.maximum(imin + 1,
+                        int(np.floor(alpha * self._N + 0.5)))        
+        return self._calculateHC(imin, imax)
+
+    def HCstar(self, alpha=0.2) :
+        """sample-adjusted higher criticism score
+
+        Args:
+        -----
+        'alpha' : lower fraction of P-values to consider
+
+        Returns:
+        -------
+        HC score, P-value attaining it
+
+        """
+
+        imin = np.argmax(self._pvals > (1-self._EPS)/ self._N)
+        imax = np.maximum(imin + 1,
+                        int(np.floor(alpha * self._N + 0.5)))        
+        return self._calculateHC(imin, imax)
+
+    def get_param(self) :
+        imin_star = np.argmax(self._pvals > (1-self._EPS)/ self._N)
+        return {'pvals' : self._pvals, 
+                'u' : self._uu,
+                'z' : self._zz,
+                'imin_star' : imin_star
+                }
+
 
 def hc_vals(pv, alpha=0.25, minPv='one_over_n', stbl=True):
     """
@@ -173,7 +268,7 @@ def two_sample_pvals(c1, c2, randomize=False, sym=False):
     c1, c2 : list of integers represents count data from two sample
     randomize : flag indicate wether to use randomized P-values
     sym : flag indicates wether the size of both sample is assumed
-          identical
+          identical, hence p=1/2
     """
     T1 = c1.sum()
     T2 = c2.sum()
@@ -192,13 +287,40 @@ def two_sample_pvals(c1, c2, randomize=False, sym=False):
 
     return pvals
 
-
 def two_sample_test_df(X, Y, alpha=0.25,
                 stbl=True, randomize=False):
     """
     Same as two_sample_test but returns all information for computing
-     HC score of the two samples. Requires pandas.
+    HC score of the two samples as a pandas data DataFrame. 
+    Requires pandas.
+
+    Args: 
+    -----
+    X, Y : lists of integers of equal length
+    alpha : parameter of HC statistic
+    stbl : parameter of HC statistic
+    randomize : use randomized or not exact binomial test
+
+    Returns:
+    -------
+    counts : DataFrame with fields: 
+            n1, n2, p, T1, T2, pval, sign, HC, thresh
+            Here: 
+            -----
+            'n1' <- X
+            'n2' <- Y
+            'T1' <- sum(X)
+            'T2' <- sum(Y)
+            'p' <- (T1 - n1) / (T1+ T2 - n1 - n2)
+            'pval' <- binom_test(n1, n1 + n2, p) (P-value of test)
+            'sign' : designates if feature is more frequent in sample X 
+                     (+1) or sample Y (-1)
+            'HC' : is the higher criticism statistic applies to the
+                 column 'pval'
+            'thresh' : designates wether the feature is below the HC 
+            threshold (True) or not (False)
     """
+    import pandas as pd
 
     counts = pd.DataFrame()
     counts['n1'] = X
@@ -224,78 +346,3 @@ def two_sample_test_df(X, Y, alpha=0.25,
     counts.loc[np.isnan(counts['pval']), ('thresh')] = False
     
     return counts
-
-def hc_vals_full(pv, alpha=0.25):
-    """
-    Higher Criticism test with additional information and different
-    versions.  (see
-    [1] Donoho, D. L. and Jin, J.,
-     "Higher criticism for detecting sparse hetrogenous mixtures", 
-     Annals of Stat. 2004)
-
-    Args:
-    -----
-    pv : list of p-values. P-values that are np.nan are exluded.
-    alpha : lower fruction of p-values to use.
-        
-    Return :
-    ------
-    df : DataFrame with fields describing HC computation
-
-    """
-    pv = np.asarray(pv)
-    n = len(pv)
-    pv = pv[~np.isnan(pv)]
-    hc_star = np.nan
-    p_star = np.nan
-
-    if n > 0:
-        ps_idx = np.argsort(pv)
-        ps = pv[ps_idx]  #sorted pvals
-
-        uu = np.linspace(1 / n, 0.999, n)  #expectation of p-values
-        i_lim_up = np.maximum(int(np.floor(alpha * n + 0.5)), 1)
-
-        uu = uu[:i_lim_up]
-        ps = ps[:i_lim_up]
-
-        z_stbl = (uu - ps) / np.sqrt(uu * (1 - uu)) * np.sqrt(n)
-        z = (uu - ps) / np.sqrt(ps * (1 - ps)) * np.sqrt(n)
-
-        def get_HC(z, i_low, i_high) :
-            i_max = np.argmax(z[i_low:i_high]) + i_low
-            HC = z[i_max]
-            return HC, i_max
-            
-        #compute HC
-        HC, i_star = get_HC(z, 0, i_lim_up)
-
-        HC_stbl, i_star_stbl = get_HC(z_stbl, 0, i_lim_up)
-
-        i_lim_low_dagger=np.argmax(ps > 0.999/n)
-        i_lim_up_dagger = max(i_lim_low_dagger + 1, i_lim_up)
-        HC_dagger, i_star_dagger = get_HC(
-            z, i_lim_low_dagger, i_lim_up_dagger)
-        
-        HC_stbl_dagger, i_star_stbl_dagger = get_HC(
-            z_stbl, i_lim_low_dagger, i_lim_up_dagger)
-        
-
-    import pandas as pd
-    df = pd.DataFrame({
-        'pval': ps,
-        'z': z,
-        'z_stbl': z_stbl,
-        'u': uu,
-        'HC': HC,
-        'HC_stbl': HC_stbl,
-        'HC_dagger' : HC_dagger,
-        'HC_stbl_dagger' : HC_stbl_dagger,
-        'thresh' : ps < ps[i_star],
-        'thresh_stbl' : ps < ps[i_star_stbl],
-        'thresh_dagger' : ps < ps[i_star_dagger],
-        'thresh_stbl_dagger' : ps < ps[i_star_stbl_dagger],
-    })
-    return df
-
-
