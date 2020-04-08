@@ -259,6 +259,8 @@ def hc_vals_full(pv, alpha=0.25):
      "Higher criticism for detecting sparse hetrogenous mixtures", 
      Annals of Stat. 2004)
 
+    Requres pandas
+
     Args:
     -----
     pv : list of p-values. P-values that are np.nan are exluded.
@@ -269,6 +271,8 @@ def hc_vals_full(pv, alpha=0.25):
     df : DataFrame with fields describing HC computation
 
     """
+    import pandas as pd
+
     pv = np.asarray(pv)
     n = len(pv)
     pv = pv[~np.isnan(pv)]
@@ -306,8 +310,6 @@ def hc_vals_full(pv, alpha=0.25):
         HC_stbl_dagger, i_star_stbl_dagger = get_HC(
             z_stbl, i_lim_low_dagger, i_lim_up_dagger)
         
-
-    import pandas as pd
     df = pd.DataFrame({
         'pval': ps,
         'z': z,
