@@ -133,7 +133,7 @@ def hc_vals(pv, alpha=0.25, minPv='one_over_n', stbl=True):
     hc_star = np.nan
     p_star = np.nan
 
-    if n > 0:
+    if n > 1:
         ps_idx = np.argsort(pv)
         ps = pv[ps_idx]  #sorted pvals
 
@@ -195,7 +195,7 @@ def poisson_test_random(x, lmd) :
 def binom_test_two_sided(x, n, p) :
     """
     Returns:
-
+    --------
     Prob( |Bin(n,p) - np| >= |x-np| )
 
     Note: for small values of Prob there are differences
@@ -215,6 +215,7 @@ def binom_test_two_sided(x, n, p) :
 def binom_test_two_sided_random(x, n, p) :
     """
     Returns:
+    --------
     pval  : random number such that 
             Prob(|Bin(n,p) - np| >= 
             |InvCDF(pval|Bin(n,p)) - n p|) ~ U(0,1)
@@ -242,7 +243,8 @@ def two_sample_test(X, Y, alpha=0.25,
     
     This function combines two_sample_pvals and hc_vals.
 
-    Parameters:
+    Args:
+    -----
     X, Y : list of integers of equal length -- represnts counts 
             from two samples.
     alpha : number in (0,1) -- parameter of HC statistics
@@ -250,6 +252,7 @@ def two_sample_test(X, Y, alpha=0.25,
     randomize : Boolean -- randomized P-valus of not
 
     Returns:
+    --------
     HC : HC score under Binmial P-values
     p_thresh : HC threshold
     """
