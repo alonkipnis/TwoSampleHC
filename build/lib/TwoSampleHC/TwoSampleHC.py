@@ -166,6 +166,64 @@ def hc_vals(pv, alpha=0.25, minPv='one_over_n', stbl=True):
     return hc_star, p_star
 
 
+def binom_var_test(smp1, smp2, max_cnt = 50) :
+    """
+    Args : 
+    smp1, smp2 : numpy arrays or lists of integer of equal legth
+    max_cnt : maximum diagonal value smp1 + smp2 to consider
+
+    Returns:
+    series with index = m and value = P-value
+
+    Note: 
+    Current implementation assumes equals sample sizes for smp1 and smp2
+    """
+    # Binomal varaince test.   Requires Pandas
+
+    import pandas as pd
+    
+    df_smp = pd.DataFrame({'n1' : smp1, 'n2' : smp2})
+    df_smp.loc[:,'N'] = df_smp.agg('sum', axis = 'columns')
+    df_smp = df_smp[(df_smp.N <= max_cnt) & (df_smp.N > 0)]
+    df_hist = df_smp.groupby(['n1', 'n2']).count().reset_index()
+
+    df_hist.loc[:,'m'] = df_hist.n1 + df_hist.n2
+
+    df_hist.loc[:,'N1'] = df_hist.n1 * df_hist.N
+    df_hist.loc[:,'N2'] = df_hist.n2 * df_hist.N
+
+    df_hist.loc[:,'NN1'] = df_hist.N1.sum()
+    df_hist.loc[:,'NN2'] = df_hist.N2.sum()
+
+    df_hist = df_hist.join(df_hist.filter(
+        ['m', 'N1', 'N2', 'N']).groupby('m').agg('sum'),
+                           on = 'm', rsuffix='_m')
+
+    df_hist.loc[:,'p'] = (df_hist['NN1'] - df_hist['N1_m'])\
+            / (df_hist['NN1'] + df_hist['NN2'] - df_hist['N1_m'] - df_hist['N2_m'])
+
+    df_hist.loc[:,'s'] = \
+            (df_hist.n1 - df_hist.m * df_hist.p) ** 2 * df_hist.N
+    df_hist.loc[:,'Es'] = \
+            df_hist.N_m * df_hist.m * df_hist.p * (1 - df_hist.p)
+    df_hist.loc[:,'Vs'] =  2 * df_hist.N_m \
+        * df_hist.m * (df_hist.m)*(df_hist.p * (1-df_hist.p)) ** 2
+    df_hist = df_hist.join(df_hist.groupby('m').agg('sum').s,
+                         on = 'm', rsuffix='_m')
+    df_hist.loc[:,'z'] = (df_hist.s_m - df_hist.Es) / np.sqrt(df_hist.Vs)
+    df_hist.loc[:,'pval'] = \
+        df_hist.z.apply(lambda z : scipy.stats.norm.cdf(-np.abs(z)))
+
+    # handle the case m=1 seperately
+    n1 = df_hist[(df_hist.n1 == 1) & (df_hist.n2 == 0)].N.values
+    n2 = df_hist[(df_hist.n1 == 0) & (df_hist.n2 == 1)].N.values
+    if len(n1) + len(n2) >= 2 :
+        df_hist.loc[df_hist.m == 1,'pval'] =\
+                     binom_test_two_sided(n1, n1 + n2 , 1/2)
+
+    return df_hist.groupby('m').pval.mean()
+
+
 def binom_test_two_sided_slow(x, n, p) :
     """
      Calls scipy.stats.binom_test on each entry of
@@ -235,7 +293,7 @@ def binom_test_two_sided_random(x, n, p) :
     prob = np.minimum(p_down + (p_up-p_down)*U, 1)
     return prob * (n != 0) + U * (n == 0)
 
-def two_sample_test(X, Y, alpha=0.25,
+def two_sample_test(X, Y, alpha=0.2,
                 stbl=True, randomize=False):
     """
     Two-sample HC test using binomial P-values. See 
@@ -291,7 +349,7 @@ def two_sample_pvals(c1, c2, randomize=False, sym=False):
 
     return pvals
 
-def two_sample_test_df(X, Y, alpha=0.25,
+def two_sample_test_df(X, Y, alpha=0.2,
                 stbl=True, randomize=False):
     """
     Same as two_sample_test but returns all information for computing
