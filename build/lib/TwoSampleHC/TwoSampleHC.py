@@ -23,10 +23,9 @@ class HC(object) :
     Methods :
     -------
         HC : HC and P-value attaining it
-        HCstar : sample adjustet HC (HC\dagger in [1])
-        
-
+        HCstar : sample adjusted HC (HC\dagger in [1])
     """
+    
     def __init__(self, pvals, stbl=True) :
 
         self._N = len(pvals)
@@ -293,7 +292,7 @@ def binom_test_two_sided_random(x, n, p) :
     prob = np.minimum(p_down + (p_up-p_down)*U, 1)
     return prob * (n != 0) + U * (n == 0)
 
-def two_sample_test(X, Y, alpha=0.2,
+def two_sample_test(X, Y, alpha=0.2, binom_var=False,
                 stbl=True, randomize=False):
     """
     Two-sample HC test using binomial P-values. See 
@@ -317,6 +316,9 @@ def two_sample_test(X, Y, alpha=0.2,
     """
     
     pvals = two_sample_pvals(X, Y, randomize=randomize)
+    if binom_var :
+        pvals_BV = binom_var_test(X, Y, max_cnt=sum(X))
+        pvals += pvals_BV
     hc_star, p_thresh = hc_vals(pvals, alpha=alpha, stbl=stbl)
     
     return hc_star, p_thresh
