@@ -18,14 +18,15 @@ class HC(object) :
         stbl : normalize by expected P-values (stbl=True) or observed 
                 P-values (stbl=False). stbl=True was suggested in [2].
                 stbl=False in [1]. 
-        alpha : lower fruction of p-values to use.
+        gamma : lower fruction of p-values to use.
         
     Methods :
     -------
         HC : HC and P-value attaining it
-        HCstar : sample adjusted HC (HC\dagger in [1])
+        HCstar : sample adjustet HC (HC\dagger in [1])
+        
+
     """
-    
     def __init__(self, pvals, stbl=True) :
 
         self._N = len(pvals)
@@ -45,7 +46,6 @@ class HC(object) :
         denom = np.maximum(denom, EPS)
         self._zz = np.sqrt(self._N) * (self._uu - self._pvals) / denom 
 
-
     def _calculateHC(self, imin, imax) :
         if imin > imax :
             return np.nan
@@ -53,12 +53,12 @@ class HC(object) :
         zMaxStar = self._zz[istar]
         return zMaxStar, self._pvals[istar]
 
-    def HC(self, alpha=0.2) : 
+    def HC(self, gamma=0.2) : 
         """higher criticism score
 
         Args:
         -----
-        'alpha' : lower fraction of P-values to consider
+        'gamma' : lower fraction of P-values to consider
 
         Returns:
         -------
@@ -67,15 +67,15 @@ class HC(object) :
         """
         imin = 0
         imax = np.maximum(imin + 1,
-                        int(np.floor(alpha * self._N + 0.5)))        
+                        int(np.floor(gamma * self._N + 0.5)))        
         return self._calculateHC(imin, imax)
 
-    def HCstar(self, alpha=0.2) :
+    def HCstar(self, gamma=0.2) :
         """sample-adjusted higher criticism score
 
         Args:
         -----
-        'alpha' : lower fraction of P-values to consider
+        'gamma' : lower fraction of P-values to consider
 
         Returns:
         -------
@@ -85,7 +85,7 @@ class HC(object) :
 
         imin = np.argmax(self._pvals > (1-self._EPS)/ self._N)
         imax = np.maximum(imin + 1,
-                        int(np.floor(alpha * self._N + 0.5)))        
+                        int(np.floor(gamma * self._N + 0.5)))        
         return self._calculateHC(imin, imax)
 
     def get_param(self) :
@@ -97,7 +97,7 @@ class HC(object) :
                 }
 
 
-def hc_vals(pv, alpha=0.25, minPv='one_over_n', stbl=True):
+def hc_vals(pv, gamma=0.25, minPv='one_over_n', stbl=True):
     """
     Higher Criticism test (see
     [1] Donoho, D. L. and Jin, J.,
@@ -111,7 +111,7 @@ def hc_vals(pv, alpha=0.25, minPv='one_over_n', stbl=True):
     Args:
     -----
         pv : list of p-values. P-values that are np.nan are exluded.
-        alpha : lower fruction of p-values to use.
+        gamma : lower fruction of p-values to use.
         stbl : use expected p-value ordering (stbl=True) or observed 
                 (stbl=False)
         minPv : integer or string 'one_over_n' (default).
@@ -138,7 +138,7 @@ def hc_vals(pv, alpha=0.25, minPv='one_over_n', stbl=True):
         ps = pv[ps_idx]  #sorted pvals
 
         uu = np.linspace(1 / n, 1-EPS, n)  #expectation of p-values under H0
-        i_lim_up = np.maximum(int(np.floor(alpha * n + 0.5)), 1)
+        i_lim_up = np.maximum(int(np.floor(gamma * n + 0.5)), 1)
 
         ps = ps[:i_lim_up]
         uu = uu[:i_lim_up]
@@ -163,64 +163,6 @@ def hc_vals(pv, alpha=0.25, minPv='one_over_n', stbl=True):
         p_star = ps[i_max_star]
 
     return hc_star, p_star
-
-
-def binom_var_test(smp1, smp2, max_cnt = 50) :
-    """
-    Args : 
-    smp1, smp2 : numpy arrays or lists of integer of equal legth
-    max_cnt : maximum diagonal value smp1 + smp2 to consider
-
-    Returns:
-    series with index = m and value = P-value
-
-    Note: 
-    Current implementation assumes equals sample sizes for smp1 and smp2
-    """
-    # Binomal varaince test.   Requires Pandas
-
-    import pandas as pd
-    
-    df_smp = pd.DataFrame({'n1' : smp1, 'n2' : smp2})
-    df_smp.loc[:,'N'] = df_smp.agg('sum', axis = 'columns')
-    df_smp = df_smp[(df_smp.N <= max_cnt) & (df_smp.N > 0)]
-    df_hist = df_smp.groupby(['n1', 'n2']).count().reset_index()
-
-    df_hist.loc[:,'m'] = df_hist.n1 + df_hist.n2
-
-    df_hist.loc[:,'N1'] = df_hist.n1 * df_hist.N
-    df_hist.loc[:,'N2'] = df_hist.n2 * df_hist.N
-
-    df_hist.loc[:,'NN1'] = df_hist.N1.sum()
-    df_hist.loc[:,'NN2'] = df_hist.N2.sum()
-
-    df_hist = df_hist.join(df_hist.filter(
-        ['m', 'N1', 'N2', 'N']).groupby('m').agg('sum'),
-                           on = 'm', rsuffix='_m')
-
-    df_hist.loc[:,'p'] = (df_hist['NN1'] - df_hist['N1_m'])\
-            / (df_hist['NN1'] + df_hist['NN2'] - df_hist['N1_m'] - df_hist['N2_m'])
-
-    df_hist.loc[:,'s'] = \
-            (df_hist.n1 - df_hist.m * df_hist.p) ** 2 * df_hist.N
-    df_hist.loc[:,'Es'] = \
-            df_hist.N_m * df_hist.m * df_hist.p * (1 - df_hist.p)
-    df_hist.loc[:,'Vs'] =  2 * df_hist.N_m \
-        * df_hist.m * (df_hist.m)*(df_hist.p * (1-df_hist.p)) ** 2
-    df_hist = df_hist.join(df_hist.groupby('m').agg('sum').s,
-                         on = 'm', rsuffix='_m')
-    df_hist.loc[:,'z'] = (df_hist.s_m - df_hist.Es) / np.sqrt(df_hist.Vs)
-    df_hist.loc[:,'pval'] = \
-        df_hist.z.apply(lambda z : scipy.stats.norm.cdf(-np.abs(z)))
-
-    # handle the case m=1 seperately
-    n1 = df_hist[(df_hist.n1 == 1) & (df_hist.n2 == 0)].N.values
-    n2 = df_hist[(df_hist.n1 == 0) & (df_hist.n2 == 1)].N.values
-    if len(n1) + len(n2) >= 2 :
-        df_hist.loc[df_hist.m == 1,'pval'] =\
-                     binom_test_two_sided(n1, n1 + n2 , 1/2)
-
-    return df_hist.groupby('m').pval.mean()
 
 
 def binom_test_two_sided_slow(x, n, p) :
@@ -292,7 +234,7 @@ def binom_test_two_sided_random(x, n, p) :
     prob = np.minimum(p_down + (p_up-p_down)*U, 1)
     return prob * (n != 0) + U * (n == 0)
 
-def two_sample_test(X, Y, alpha=0.2, binom_var=False,
+def two_sample_test(X, Y, gamma=0.25,
                 stbl=True, randomize=False):
     """
     Two-sample HC test using binomial P-values. See 
@@ -305,7 +247,7 @@ def two_sample_test(X, Y, alpha=0.2, binom_var=False,
     -----
     X, Y : list of integers of equal length -- represnts counts 
             from two samples.
-    alpha : number in (0,1) -- parameter of HC statistics
+    gamma : number in (0,1) -- parameter of HC statistics
     stbl : Boolean -- standardize P-values by i/N or p_{(i)}/N
     randomize : Boolean -- randomized P-valus of not
 
@@ -316,10 +258,7 @@ def two_sample_test(X, Y, alpha=0.2, binom_var=False,
     """
     
     pvals = two_sample_pvals(X, Y, randomize=randomize)
-    if binom_var :
-        pvals_BV = binom_var_test(X, Y, max_cnt=sum(X))
-        pvals += pvals_BV
-    hc_star, p_thresh = hc_vals(pvals, alpha=alpha, stbl=stbl)
+    hc_star, p_thresh = hc_vals(pvals, gamma=gamma, stbl=stbl)
     
     return hc_star, p_thresh
 
@@ -351,7 +290,7 @@ def two_sample_pvals(c1, c2, randomize=False, sym=False):
 
     return pvals
 
-def two_sample_test_df(X, Y, alpha=0.2,
+def two_sample_test_df(X, Y, gamma=0.25,
                 stbl=True, randomize=False):
     """
     Same as two_sample_test but returns all information for computing
@@ -361,7 +300,7 @@ def two_sample_test_df(X, Y, alpha=0.2,
     Args: 
     -----
     X, Y : lists of integers of equal length
-    alpha : parameter of HC statistic
+    gamma : parameter of HC statistic
     stbl : parameter of HC statistic
     randomize : use randomized or not exact binomial test
 
@@ -402,7 +341,7 @@ def two_sample_test_df(X, Y, alpha=0.2,
         randomize=randomize
         )
     counts['sign'] = np.sign(counts.n1 - (counts.n1 + counts.n2) * counts.p)
-    hc_star, p_val_thresh = hc_vals(counts['pval'], alpha=alpha, stbl=stbl)
+    hc_star, p_val_thresh = hc_vals(counts['pval'], gamma=gamma, stbl=stbl)
     counts['HC'] = hc_star
 
     counts['thresh'] = True
