@@ -3,27 +3,28 @@ from scipy.stats import binom, norm, poisson
 
 class HC(object) :
     """
-    Higher Criticism test (see
+    A class to perform Higher Criticism test 
+
     [1] Donoho, D. L. and Jin, J.,
      "Higher criticism for detecting sparse hetrogenous mixtures", 
      Annals of Stat. 2004
     [2] Donoho, D. L. and Jin, J. "Higher critcism thresholding: Optimal 
     feature selection when useful features are rare and weak", proceedings
     of the national academy of sciences, 2008.
-     )
+    ========================================================================
 
     Args:
     -----
-        pvals : list of p-values. P-values that are np.nan are exluded.
-        stbl : normalize by expected P-values (stbl=True) or observed 
-                P-values (stbl=False). stbl=True was suggested in [2].
-                stbl=False in [1]. 
-        gamma : lower fruction of p-values to use.
+        pvals    list of p-values. P-values that are np.nan are exluded.
+        stbl     normalize by expected P-values (stbl=True) or observed 
+                 P-values (stbl=False). stbl=True was suggested in [2].
+                 stbl=False in [1]. 
+        gamma    lower fruction of p-values to use.
         
     Methods :
     -------
-        HC : HC and P-value attaining it
-        HCstar : sample adjustet HC (HC\dagger in [1])
+        HC       HC and P-value attaining it
+        HCstar   sample adjustet HC (HC\dagger in [1])
         
 
     """
@@ -69,6 +70,34 @@ class HC(object) :
         imax = np.maximum(imin + 1,
                         int(np.floor(gamma * self._N + 0.5)))        
         return self._calculateHC(imin, imax)
+
+    def BJ(self, gamma=0.1) :
+        """
+        Exact Berk-Jones statistic
+
+        Args:
+        -----
+        'gamma' : lower fraction of P-values to consider
+
+        Returns:
+        -------
+        -log(BJ) score, P-value attaining it
+        """
+
+        from scipy.stats import beta
+
+        max_i = max(1, int(gamma * len(ii)))
+        
+        spv = self._pvals
+        N = self._N
+
+        if len(pv) >= 1 :
+            ii = np.arange(1, N + 1)
+            BJpv = beta.sf(spv, ii, N - ii + 1)[:max_i]
+            i_star = np.argmin(BJpv)
+            BJ = -np.log(BJpv[i_star])
+            p_th = spv[i_star]
+            return BJ, p_th
 
     def HCstar(self, gamma=0.2) :
         """sample-adjusted higher criticism score
