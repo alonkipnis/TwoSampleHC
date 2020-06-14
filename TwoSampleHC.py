@@ -24,7 +24,7 @@ class HC(object) :
     Methods :
     -------
         HC       HC and P-value attaining it
-        HCstar   sample adjustet HC (HC\dagger in [1])
+        HCstar   sample adjustet HC (HCdagger in [1])
         
 
     """
@@ -86,18 +86,22 @@ class HC(object) :
 
         from scipy.stats import beta
 
-        max_i = max(1, int(gamma * len(ii)))
-        
         spv = self._pvals
         N = self._N
 
-        if len(pv) >= 1 :
-            ii = np.arange(1, N + 1)
+        ii = np.arange(1, N + 1)
+        max_i = max(1, int(gamma * len(ii)))
+
+        BJ = spv[0]
+        p_th = spv[0]
+
+        if len(spv) >= 1 :
             BJpv = beta.sf(spv, ii, N - ii + 1)[:max_i]
             i_star = np.argmin(BJpv)
-            BJ = -np.log(BJpv[i_star])
+            BJ = BJpv[i_star]
             p_th = spv[i_star]
-            return BJ, p_th
+        
+        return -np.log(BJ), p_th
 
     def HCstar(self, gamma=0.2) :
         """sample-adjusted higher criticism score
