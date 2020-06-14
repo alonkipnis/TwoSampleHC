@@ -89,19 +89,22 @@ class HC(object) :
         spv = self._pvals
         N = self._N
 
+        if N == 0 :
+            return np.nan, np.nan
+
+        bj = spv[0]
+        p_th = spv[0]
+            
         ii = np.arange(1, N + 1)
         max_i = max(1, int(gamma * len(ii)))
-
-        BJ = spv[0]
-        p_th = spv[0]
 
         if len(spv) >= 1 :
             BJpv = beta.sf(spv, ii, N - ii + 1)[:max_i]
             i_star = np.argmin(BJpv)
-            BJ = BJpv[i_star]
+            bj = BJpv[i_star]
             p_th = spv[i_star]
         
-        return -np.log(BJ), p_th
+        return -np.log(bj), p_th
 
     def HCstar(self, gamma=0.2) :
         """sample-adjusted higher criticism score
