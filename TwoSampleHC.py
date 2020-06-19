@@ -133,7 +133,7 @@ class HC(object) :
                 }
 
 
-def hc_vals(pv, gamma=0.25, minPv='one_over_n', stbl=True):
+def hc_vals(pv, gamma=0.2, minPv='one_over_n', stbl=True):
     """
     Higher Criticism test (see
     [1] Donoho, D. L. and Jin, J.,
@@ -326,7 +326,7 @@ def two_sample_pvals(c1, c2, randomize=False, sym=False):
 
     return pvals
 
-def two_sample_test_df(X, Y, gamma=0.25,
+def two_sample_test_df(X, Y, gamma=0.25, min_cnt=0,
                 stbl=True, randomize=False):
     """
     Same as two_sample_test but returns all information for computing
@@ -366,6 +366,7 @@ def two_sample_test_df(X, Y, gamma=0.25,
     counts['n2'] = Y
     T1 = counts['n1'].sum()
     T2 = counts['n2'].sum()
+    
     counts['p'] = (T1 - counts.n1) / (T1 + T2 - counts.n1 - counts.n2)
 
     counts['T1'] = T1
@@ -377,7 +378,13 @@ def two_sample_test_df(X, Y, gamma=0.25,
         randomize=randomize
         )
     counts['sign'] = np.sign(counts.n1 - (counts.n1 + counts.n2) * counts.p)
-    hc_star, p_val_thresh = hc_vals(counts['pval'], gamma=gamma, stbl=stbl)
+
+    counts.loc[counts.n1 + counts.n2 >= min_cnt, 'pval'] = np.nan
+    pvals = counts[counts.n1 + counts.n2 >= min_cnt].pval
+    hc = HC(pvals[~pvals.isna()], stbl=stbl)
+    #hc_star, p_val_thresh = hc_vals(pvals, gamma=gamma, stbl=stbl)
+    hc_star, p_val_thresh = hc.HCstar(gamma=gamma)
+
     counts['HC'] = hc_star
 
     counts['thresh'] = True
