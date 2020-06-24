@@ -380,8 +380,8 @@ def two_sample_test_df(X, Y, gamma=0.25, min_cnt=0,
     counts['sign'] = np.sign(counts.n1 - (counts.n1 + counts.n2) * counts.p)
 
     counts.loc[counts.n1 + counts.n2 < min_cnt, 'pval'] = np.nan
-    pvals = counts.pval.values()
-    hc = HC(pvals[~pvals.isna()], stbl=stbl)
+    pvals = counts.pval.values
+    hc = HC(pvals[~np.isnan(pvals)], stbl=stbl)
     #hc_star, p_val_thresh = hc_vals(pvals, gamma=gamma, stbl=stbl)
     hc_star, p_val_thresh = hc.HCstar(gamma=gamma)
 
