@@ -238,8 +238,11 @@ def binom_test_two_sided(x, n, p) :
     fron scipy.python.binom_test. It is unclear which one is 
     more accurate.
     """
-    x_low = np.floor(np.floor(n * p - np.abs(x-n*p)))
-    x_high = np.floor(np.floor(n * p + np.abs(x-n*p)))
+
+    n = np.floor(n)
+
+    x_low = n * p - np.abs(x-n*p)
+    x_high = n * p + np.abs(x-n*p)
 
     p_up = binom.cdf(x_low, n, p)\
         + binom.sf(x_high-1, n, p)
@@ -259,6 +262,8 @@ def binom_test_two_sided_random(x, n, p) :
 
     x_low = np.floor(n * p - np.abs(x-n*p))
     x_high = np.floor(n * p + np.abs(x-n*p))
+
+    n = np.floor(n)
 
     p_up = binom.cdf(x_low, n, p)\
         + binom.sf(x_high-1, n, p)
