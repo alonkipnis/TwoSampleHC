@@ -304,6 +304,52 @@ def two_sample_test(X, Y, gamma=0.25,
     return hc_star, p_thresh
 
 
+def binom_var_test(c1, c2, sym=False) :
+    """ Binmial variance test along stripes
+    Args:
+    ----
+    c1, c2 : list of integers represents count data from two sample
+    sym : flag indicates wether the size of both sample is assumed
+          identical, hence p=1/2
+    """
+    
+    max_cnt = np.max(c1 + c2)
+
+    df_smp = pd.DataFrame({'n1' : smp1, 'n2' : smp2})
+    df_smp.loc[:,'N'] = df_smp.agg('sum', axis = 'columns')
+    df_smp = df_smp[(df_smp.N <= max_cnt) & (df_smp.N > 0)]
+    df_hist = df_smp.groupby(['n1', 'n2']).count().reset_index()
+
+    df_hist.loc[:,'m'] = df_hist.n1 + df_hist.n2
+
+    df_hist.loc[:,'N1'] = df_hist.n1 * df_hist.N
+    df_hist.loc[:,'N2'] = df_hist.n2 * df_hist.N
+
+    df_hist.loc[:,'NN1'] = df_hist.N1.sum()
+    df_hist.loc[:,'NN2'] = df_hist.N2.sum()
+
+    df_hist = df_hist.join(df_hist.filter(['m', 'N1', 'N2', 'N']).groupby('m').agg('sum'),
+                           on = 'm', rsuffix='_m')
+
+    df_hist.loc[:,'p'] = (df_hist['NN1'] - df_hist['N1_m'])\
+            / (df_hist['NN1'] + df_hist['NN2'] - df_hist['N1_m'] - df_hist['N2_m'])
+
+    df_hist.loc[:,'s'] = (df_hist.n1 - df_hist.m * df_hist.p) ** 2 * df_hist.N
+    df_hist.loc[:,'Es'] = df_hist.N_m * df_hist.m * df_hist.p * (1 - df_hist.p)
+    df_hist.loc[:,'Vs'] = 2 * df_hist.N_m *  df_hist.m * (df_hist.m) * ( df_hist.p * (1 - df_hist.p) ) ** 2
+    df_hist = df_hist.join(df_hist.groupby('m').agg('sum').s, on = 'm', rsuffix='_m')
+    df_hist.loc[:,'z'] = (df_hist.s_m - df_hist.Es) / np.sqrt(df_hist.Vs)
+    df_hist.loc[:,'pval'] = df_hist.z.apply(lambda z : scipy.stats.norm.cdf(-np.abs(z)))
+
+    # handle the case m=1 seperately
+    n1 = df_hist[(df_hist.n1 == 1) & (df_hist.n2 == 0)].N.values
+    n2 = df_hist[(df_hist.n1 == 0) & (df_hist.n2 == 1)].N.values
+    if len(n1) + len(n2) >= 2 :
+        df_hist.loc[df_hist.m == 1,'pval'] = binom_test_two_sided(n1, n1 + n2 , 1/2)
+
+    return df_hist.groupby('m').pval.mean()
+
+
 def two_sample_pvals(c1, c2, randomize=False, sym=False):
 
     """ feature by feature exact binomial test
