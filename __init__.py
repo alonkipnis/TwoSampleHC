@@ -6,6 +6,7 @@ from .TwoSampleHC import binom_test_two_sided
 from .TwoSampleHC import HC
 from .TwoSampleHC import two_sample_test_df
 from .TwoSampleHC import poisson_test_random
+from .TwoSampleHC import binom_var_test
 
 __all__ = [
 	'HC',
