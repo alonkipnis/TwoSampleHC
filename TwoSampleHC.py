@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.stats import binom, norm, poisson
+from scipy.stats import binom, norm, poisson, beta
 
 class HC(object) :
     """
@@ -83,8 +83,6 @@ class HC(object) :
         -------
         -log(BJ) score, P-value attaining it
         """
-
-        from scipy.stats import beta
 
         spv = self._pvals
         N = self._N
@@ -312,10 +310,11 @@ def binom_var_test(c1, c2, sym=False) :
     sym : flag indicates wether the size of both sample is assumed
           identical, hence p=1/2
     """
-    
+    import pandas as pd
+
     max_cnt = np.max(c1 + c2)
 
-    df_smp = pd.DataFrame({'n1' : smp1, 'n2' : smp2})
+    df_smp = pd.DataFrame({'n1' : c1, 'n2' : c2})
     df_smp.loc[:,'N'] = df_smp.agg('sum', axis = 'columns')
     df_smp = df_smp[(df_smp.N <= max_cnt) & (df_smp.N > 0)]
     df_hist = df_smp.groupby(['n1', 'n2']).count().reset_index()
@@ -339,7 +338,8 @@ def binom_var_test(c1, c2, sym=False) :
     df_hist.loc[:,'Vs'] = 2 * df_hist.N_m *  df_hist.m * (df_hist.m) * ( df_hist.p * (1 - df_hist.p) ) ** 2
     df_hist = df_hist.join(df_hist.groupby('m').agg('sum').s, on = 'm', rsuffix='_m')
     df_hist.loc[:,'z'] = (df_hist.s_m - df_hist.Es) / np.sqrt(df_hist.Vs)
-    df_hist.loc[:,'pval'] = df_hist.z.apply(lambda z : scipy.stats.norm.cdf(-np.abs(z)))
+    #df_hist.loc[:,'pval'] = df_hist.z.apply(lambda z : norm.cdf(-np.abs(z)))
+    df_hist.loc[:,'pval'] = df_hist.z.apply(lambda z : norm.sf(z))
 
     # handle the case m=1 seperately
     n1 = df_hist[(df_hist.n1 == 1) & (df_hist.n2 == 0)].N.values
