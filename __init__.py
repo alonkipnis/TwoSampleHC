@@ -12,6 +12,7 @@ __all__ = [
     'hc_vals',
     'two_sample_test',
     'two_sample_pvals',
+    'binom_var_test',
     'binom_test_two_sided_random',
     'binom_test_two_sided',
     'two_sample_test_df',
