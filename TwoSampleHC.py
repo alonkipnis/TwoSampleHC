@@ -354,7 +354,7 @@ def binom_var_test_df(c1, c2, sym=False, max_m=-1) :
 
     return df_hist
 
-def binom_var_test(c1, c2, sym=False) :
+def binom_var_test(c1, c2, sym=False, max_m=-1) :
     """ Binmial variance test along stripes
     Args:
     ----
@@ -362,7 +362,7 @@ def binom_var_test(c1, c2, sym=False) :
     sym : flag indicates wether the size of both sample is assumed
           identical, hence p=1/2
     """
-    df_hist = binom_var_test_df(c1, c2, sym=sym)
+    df_hist = binom_var_test_df(c1, c2, sym=sym, max_m=max_m)
     return df_hist.groupby('m').pval.mean()
 
 def two_sample_pvals(c1, c2, randomize=False, sym=False):
