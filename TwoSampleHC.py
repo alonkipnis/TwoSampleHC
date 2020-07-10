@@ -318,7 +318,7 @@ def binom_var_test_df(c1, c2, sym=False, max_m=-1) :
     df_smp.loc[:,'N'] = df_smp.agg('sum', axis = 'columns')
 
     if max_m > 0 :
-        df_smp = df_smp[df_smp.c1 + df_smp.c2 <= max_m]
+        df_smp = df_smp[df_smp.n1 + df_smp.n2 <= max_m]
 
     df_hist = df_smp.groupby(['n1', 'n2']).count().reset_index()
     # truncate where normal approximation is no longer valid
