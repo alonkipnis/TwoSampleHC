@@ -301,9 +301,9 @@ def two_sample_test(X, Y, gamma=0.25,
     
     return hc_star, p_thresh
 
-
-def binom_var_test(c1, c2, sym=False) :
-    """ Binmial variance test along stripes
+def binom_var_test_df(c1, c2, sym=False) :
+    """ Binmial variance test along stripes. 
+        This version returns all quantities in the calculation
     Args:
     ----
     c1, c2 : list of integers represents count data from two sample
@@ -347,8 +347,18 @@ def binom_var_test(c1, c2, sym=False) :
     if len(n1) + len(n2) >= 2 :
         df_hist.loc[df_hist.m == 1,'pval'] = binom_test_two_sided(n1, n1 + n2 , 1/2)
 
-    return df_hist.groupby('m').pval.mean()
+    return df_hist
 
+def binom_var_test(c1, c2, sym=False) :
+    """ Binmial variance test along stripes
+    Args:
+    ----
+    c1, c2 : list of integers represents count data from two sample
+    sym : flag indicates wether the size of both sample is assumed
+          identical, hence p=1/2
+    """
+    df_hist = binom_var_test_df(c1, c2, sym=sym)
+    return df_hist.groupby('m').pval.mean()
 
 def two_sample_pvals(c1, c2, randomize=False, sym=False):
 
@@ -380,6 +390,7 @@ def two_sample_pvals(c1, c2, randomize=False, sym=False):
 def two_sample_test_df(X, Y, gamma=0.25, min_cnt=0,
                 stbl=True, randomize=False):
     """
+
     Same as two_sample_test but returns all information for computing
     HC score of the two samples as a pandas data DataFrame. 
     Requires pandas.
@@ -428,6 +439,7 @@ def two_sample_test_df(X, Y, gamma=0.25, min_cnt=0,
         counts['n2'],
         randomize=randomize
         )
+
     counts['sign'] = np.sign(counts.n1 - (counts.n1 + counts.n2) * counts.p)
 
     counts.loc[counts.n1 + counts.n2 < min_cnt, 'pval'] = np.nan
