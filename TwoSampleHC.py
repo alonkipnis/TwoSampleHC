@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from scipy.stats import binom, norm, poisson, beta
 
 class HC(object) :
@@ -11,6 +12,8 @@ class HC(object) :
     [2] Donoho, D. L. and Jin, J. "Higher critcism thresholding: Optimal 
     feature selection when useful features are rare and weak", proceedings
     of the national academy of sciences, 2008.
+    [3] Kipnis, A. "Higher Criticism for Discriminating Word Frequency Tables
+     and Testing Authorship," 2019. 
     ========================================================================
 
     Args:
@@ -301,7 +304,7 @@ def two_sample_test(X, Y, gamma=0.25,
     
     return hc_star, p_thresh
 
-def binom_var_test_df(c1, c2, sym=False) :
+def binom_var_test_df(c1, c2, sym=False, max_m=-1) :
     """ Binmial variance test along stripes. 
         This version returns all quantities in the calculation
     Args:
@@ -310,14 +313,16 @@ def binom_var_test_df(c1, c2, sym=False) :
     sym : flag indicates wether the size of both sample is assumed
           identical, hence p=1/2
     """
-    import pandas as pd
-
-    max_cnt = np.max(c1 + c2)
 
     df_smp = pd.DataFrame({'n1' : c1, 'n2' : c2})
     df_smp.loc[:,'N'] = df_smp.agg('sum', axis = 'columns')
-    df_smp = df_smp[(df_smp.N <= max_cnt) & (df_smp.N > 0)]
+
+    if max_m > 0 :
+        df_smp = df_smp[df_smp.c1 + df_smp.c2 <= max_m]
+
     df_hist = df_smp.groupby(['n1', 'n2']).count().reset_index()
+    # truncate where normal approximation is no longer valid
+    df_hist = df_hist[df_hist.N > np.minimum(df_hist.n1 + df_hist.n2, 9)]
 
     df_hist.loc[:,'m'] = df_hist.n1 + df_hist.n2
 
