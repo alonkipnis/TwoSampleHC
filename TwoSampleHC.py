@@ -28,8 +28,10 @@ class HC(object) :
     -------
         HC       HC and P-value attaining it
         HCstar   sample adjustet HC (HCdagger in [1])
+        HCjin    a version of HC from 
+                [2] Jiashun Jin and Wanjie Wang, "Influential features PCA for
+                 high dimensional clustering"
         
-
     """
     def __init__(self, pvals, stbl=True) :
 
@@ -74,6 +76,24 @@ class HC(object) :
                         int(np.floor(gamma * self._N + 0.5)))        
         return self._calculateHC(imin, imax)
 
+    def HCjin(self, gamma=0.2) :
+        """sample-adjusted higher criticism score from [2]
+
+        Args:
+        -----
+        'gamma' : lower fraction of P-values to consider
+
+        Returns:
+        -------
+        HC score, P-value attaining it
+
+        """
+
+        imin = np.argmax(self._pvals > np.log(self._N) / self._N)
+        imax = np.maximum(imin + 1,
+                        int(np.floor(gamma * self._N + 0.5)))
+        return self._calculateHC(imin, imax)
+    
     def BJ(self, gamma=0.1) :
         """
         Exact Berk-Jones statistic
@@ -319,13 +339,15 @@ def binom_var_test_df(c1, c2, sym=False, max_m=-1) :
 
     if max_m > 0 :
         df_smp = df_smp[df_smp.n1 + df_smp.n2 <= max_m]
-
-    df_hist = df_smp.groupby(['n1', 'n2']).count().reset_index()
-    # truncate where normal approximation is no longer valid
-    df_hist = df_hist[df_hist.N > np.minimum(df_hist.n1 + df_hist.n2, 9)]
-
-    df_hist.loc[:,'m'] = df_hist.n1 + df_hist.n2
-
+        df_hist = df_smp.groupby(['n1', 'n2']).count().reset_index()
+        df_hist.loc[:,'m'] = df_hist.n1 + df_hist.n2
+    else :
+        df_hist = df_smp.groupby(['n1', 'n2']).count().reset_index()
+        # truncate where normal approximation is no longer valid
+        df_hist.loc[:,'m'] = df_hist.n1 + df_hist.n2    
+        df_hist = df_hist[(df_hist.m > 0) &
+            (df_hist.N > np.minimum(df_hist.n1 + df_hist.n2, 5))]
+    
     df_hist.loc[:,'N1'] = df_hist.n1 * df_hist.N
     df_hist.loc[:,'N2'] = df_hist.n2 * df_hist.N
 
