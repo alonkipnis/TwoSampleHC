@@ -336,17 +336,13 @@ def binom_var_test_df(c1, c2, sym=False, max_m=-1) :
 
     df_smp = pd.DataFrame({'n1' : c1, 'n2' : c2})
     df_smp.loc[:,'N'] = df_smp.agg('sum', axis = 'columns')
-
+    
     if max_m > 0 :
         df_smp = df_smp[df_smp.n1 + df_smp.n2 <= max_m]
-        df_hist = df_smp.groupby(['n1', 'n2']).count().reset_index()
-        df_hist.loc[:,'m'] = df_hist.n1 + df_hist.n2
-    else :
-        df_hist = df_smp.groupby(['n1', 'n2']).count().reset_index()
-        # truncate where normal approximation is no longer valid
-        df_hist.loc[:,'m'] = df_hist.n1 + df_hist.n2    
-        df_hist = df_hist[(df_hist.m > 0) &
-            (df_hist.N > np.minimum(df_hist.n1 + df_hist.n2, 5))]
+        
+    df_hist = df_smp.groupby(['n1', 'n2']).count().reset_index()
+    df_hist.loc[:,'m'] = df_hist.n1 + df_hist.n2
+    df_hist = df_hist[df_hist.m > 0]
     
     df_hist.loc[:,'N1'] = df_hist.n1 * df_hist.N
     df_hist.loc[:,'N2'] = df_hist.n2 * df_hist.N
@@ -356,6 +352,8 @@ def binom_var_test_df(c1, c2, sym=False, max_m=-1) :
 
     df_hist = df_hist.join(df_hist.filter(['m', 'N1', 'N2', 'N']).groupby('m').agg('sum'),
                            on = 'm', rsuffix='_m')
+    if max_m == -1 :
+        df_hist = df_hist[df_hist.N_m > np.maximum(df_hist.n1, df_hist.n2)]
 
     df_hist.loc[:,'p'] = (df_hist['NN1'] - df_hist['N1_m'])\
             / (df_hist['NN1'] + df_hist['NN2'] - df_hist['N1_m'] - df_hist['N2_m'])
