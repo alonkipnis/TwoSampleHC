@@ -222,6 +222,20 @@ def hc_vals(pv, gamma=0.2, minPv='one_over_n', stbl=True):
     return hc_star, p_star
 
 
+def binom_test_greater(x, n, p) :
+    """
+    Returns:
+    --------
+    Prob( |Bin(n,p)| >= x)
+
+    Note: for small values of Prob there are differences
+    fron scipy.python.binom_test. It is unclear which one is 
+    more accurate.
+    """
+    return binom.sf(x, n, p) + binom.pmf(x, n, p)
+
+
+
 def binom_test_two_sided_slow(x, n, p) :
     """
      Calls scipy.stats.binom_test on each entry of
@@ -243,11 +257,12 @@ def binom_test_two_sided_slow(x, n, p) :
     return pv
 
 def poisson_test_random(x, lmd) :
+    """Prob( Pois(n,p) >= x ) + randomization """
     p_down = 1 - poisson.cdf(x, lmd)
     p_up = 1 - poisson.cdf(x, lmd) + poisson.pmf(x, lmd)
     U = np.random.rand(x.shape[0])
     prob = np.minimum(p_down + (p_up-p_down)*U, 1)
-    return prob * (n != 0) + U * (n == 0)
+    return prob * (x != 0) + U * (x == 0)
 
 def binom_test_two_sided(x, n, p) :
     """
@@ -297,7 +312,8 @@ def binom_test_two_sided_random(x, n, p) :
     return prob * (n != 0) + U * (n == 0)
 
 def two_sample_test(X, Y, gamma=0.25,
-                stbl=True, randomize=False):
+                stbl=True, randomize=False,
+                alt='two-sided') :
     """
     Two-sample HC test using binomial P-values. See 
     [1] Alon Kipnis, ``Higher Criticism for Discriminating Word-Frequency
@@ -307,7 +323,7 @@ def two_sample_test(X, Y, gamma=0.25,
 
     Args:
     -----
-    X, Y : list of integers of equal length -- represnts counts 
+    X, Y : list of integers of equal length -- represnting counts 
             from two samples.
     gamma : number in (0,1) -- parameter of HC statistics
     stbl : Boolean -- standardize P-values by i/N or p_{(i)}/N
@@ -319,8 +335,9 @@ def two_sample_test(X, Y, gamma=0.25,
     p_thresh : HC threshold
     """
     
-    pvals = two_sample_pvals(X, Y, randomize=randomize)
-    hc_star, p_thresh = hc_vals(pvals, gamma=gamma, stbl=stbl)
+    pvals = two_sample_pvals(X, Y, randomize=randomize, alt=alt)
+    hc_star, p_thresh = HC(pvals[~np.isnan(pvals)], stbl).HCstar(gamma)
+    #hc_star, p_thresh = hc_vals(pvals, gamma=gamma, stbl=stbl)
     
     return hc_star, p_thresh
 
@@ -385,7 +402,8 @@ def binom_var_test(c1, c2, sym=False, max_m=-1) :
     df_hist = binom_var_test_df(c1, c2, sym=sym, max_m=max_m)
     return df_hist.groupby('m').pval.mean()
 
-def two_sample_pvals(c1, c2, randomize=False, sym=False):
+def two_sample_pvals(c1, c2, randomize=False, sym=False,
+         alt='two-sided'):
 
     """ feature by feature exact binomial test
     Args:
@@ -404,16 +422,18 @@ def two_sample_pvals(c1, c2, randomize=False, sym=False):
 
     p = ((T1 - c1) / den)*(1-sym) + sym * 1./2
 
-    if randomize :
+    if alt == 'greater' :
+        pvals = binom_test_greater(c2, c1 + c2, p)
+    elif randomize :
         pvals = binom_test_two_sided_random(c1, c1 + c2, p)
     else :
         pvals = binom_test_two_sided(c1, c1 + c2, p)
-        #pvals = binom_test_two_sided_slow(c1, c1 + c2, p)
 
     return pvals
 
 def two_sample_test_df(X, Y, gamma=0.25, min_cnt=0,
-                stbl=True, randomize=False):
+                stbl=True, randomize=False, 
+                alt='two-sided'):
     """
 
     Same as two_sample_test but returns all information for computing
@@ -462,7 +482,7 @@ def two_sample_test_df(X, Y, gamma=0.25, min_cnt=0,
     counts['pval'] = two_sample_pvals(
         counts['n1'],
         counts['n2'],
-        randomize=randomize
+        randomize=randomize, alt=alt
         )
 
     counts['sign'] = np.sign(counts.n1 - (counts.n1 + counts.n2) * counts.p)
