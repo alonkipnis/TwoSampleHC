@@ -4,16 +4,15 @@ from scipy.stats import binom, norm, poisson, beta
 
 class HC(object) :
     """
-    A class to perform Higher Criticism test 
+    Higher Criticism test 
 
+    References:
     [1] Donoho, D. L. and Jin, J.,
      "Higher criticism for detecting sparse hetrogenous mixtures", 
      Annals of Stat. 2004
     [2] Donoho, D. L. and Jin, J. "Higher critcism thresholding: Optimal 
     feature selection when useful features are rare and weak", proceedings
     of the national academy of sciences, 2008.
-    [3] Kipnis, A. "Higher Criticism for Discriminating Word Frequency Tables
-     and Testing Authorship," 2019. 
     ========================================================================
 
     Args:
@@ -53,6 +52,9 @@ class HC(object) :
         denom = np.maximum(denom, EPS)
         self._zz = np.sqrt(self._N) * (self._uu - self._pvals) / denom 
 
+        self._imin_star = np.argmax(self._pvals > (1-self._EPS)/ self._N)
+        self._imin_jin = np.argmax(self._pvals > np.log(self._N) / self._N)
+
     def _calculateHC(self, imin, imax) :
         if imin > imax :
             return np.nan
@@ -62,7 +64,7 @@ class HC(object) :
 
     def HC(self, gamma=0.2) : 
         """
-        Higher Criticism score
+        Higher Criticism test statistic
 
         Args:
         -----
@@ -70,7 +72,7 @@ class HC(object) :
 
         Returns:
         -------
-        HC score, P-value attaining it
+        HC test score, P-value attaining it
 
         """
         imin = 0
@@ -90,8 +92,8 @@ class HC(object) :
         HC score, P-value attaining it
 
         """
-
-        imin = np.argmax(self._pvals > np.log(self._N) / self._N)
+        
+        imin = self._imin_jin
         imax = np.maximum(imin + 1,
                         int(np.floor(gamma * self._N + 0.5)))
         return self._calculateHC(imin, imax)
@@ -142,17 +144,17 @@ class HC(object) :
 
         """
 
-        imin = np.argmax(self._pvals > (1-self._EPS)/ self._N)
+        imin = self._imin_star
         imax = np.maximum(imin + 1,
                         int(np.floor(gamma * self._N + 0.5)))        
         return self._calculateHC(imin, imax)
 
-    def get_param(self) :
-        imin_star = np.argmax(self._pvals > (1-self._EPS)/ self._N)
+    def get_state(self) :
         return {'pvals' : self._pvals, 
                 'u' : self._uu,
                 'z' : self._zz,
-                'imin_star' : imin_star
+                'imin_star' : self._imin_star,
+                'imin_jin' : self._imin_jin,
                 }
 
 
@@ -369,37 +371,6 @@ def binom_test_two_sided_random(x, n, p) :
     prob = np.minimum(p_down + (p_up-p_down)*U, 1)
     return prob * (n != 0) + U * (n == 0)
 
-# def two_sample_test(X, Y, gamma=0.25,
-#                 stbl=True, randomize=False,
-#                 alt='two-sided') :
-#     """
-#     Two-sample HC test using binomial P-values. See 
-#     [1] Alon Kipnis, ``Higher Criticism for Discriminating Word-Frequency
-#     Tables and Testing Authorship'', 2019
-    
-#     This function combines two_sample_pvals and hc_vals.
-
-#     Args:
-#     -----
-#     X, Y : list of integers of equal length -- represnting counts 
-#             from two samples.
-#     gamma : number in (0,1) -- parameter of HC statistics
-#     stbl : Boolean -- standardize P-values by i/N or p_{(i)}/N
-#     randomize : Boolean -- randomized P-valus of not
-#     alt  :   how to compute P-values ('two-sided' or 'greater')
-
-#     Returns:
-#     --------
-#     HC : HC score under Binmial P-values
-#     p_thresh : HC threshold
-#     """
-    
-#     pvals = two_sample_pvals(X, Y, randomize=randomize, alt=alt)
-#     hc_star, p_thresh = HC(pvals[~np.isnan(pvals)], stbl).HCstar(gamma)
-#     #hc_star, p_thresh = hc_vals(pvals, gamma=gamma, stbl=stbl)
-    
-#     return hc_star, p_thresh
-
 def binom_var_test_df(c1, c2, sym=False, max_m=-1) :
     """ Binmial variance test along stripes. 
         This version returns all sub-calculations
@@ -495,7 +466,7 @@ def two_sample_pvals(c1, c2, randomize=False,
 
 def two_sample_test_df(X, Y, gamma=0.25, min_cnt=0,
                 stbl=True, randomize=False, 
-                alt='two-sided'):
+                alt='two-sided', HCtype='HCstar'):
     """
     Same as two_sample_test but returns all information for computing
     HC score of the two samples as a pandas data DataFrame. 
@@ -503,10 +474,13 @@ def two_sample_test_df(X, Y, gamma=0.25, min_cnt=0,
 
     Args: 
     -----
-    X, Y : lists of integers of equal length
-    gamma : parameter of HC statistic
-    stbl : parameter of HC statistic
-    randomize : use randomized or not exact binomial test
+    X, Y       lists of integers of equal length
+    gamma      parameter of HC statistic
+    stbl       parameter of HC statistic
+    randomize  use randomized or not exact binomial test
+    alt        type of test alternatives: 'two-sided' or 'one-sided'
+    HCtype     either 'HCstar' (default) or  'original'. Determine
+               different variations of HC statistic 
 
     Returns:
     -------
@@ -520,12 +494,12 @@ def two_sample_test_df(X, Y, gamma=0.25, min_cnt=0,
             'T2' <- sum(Y)
             'p' <- (T1 - n1) / (T1+ T2 - n1 - n2)
             'pval' <- binom_test(n1, n1 + n2, p) (P-value of test)
-            'sign' : designates if feature is more frequent in sample X 
-                     (+1) or sample Y (-1)
-            'HC' : is the higher criticism statistic applies to the
-                 column 'pval'
-            'thresh' : designates wether the feature is below the HC 
-            threshold (True) or not (False)
+            'sign' :    indicates whether a feature is more frequent 
+                    in sample X (+1) or sample Y (-1)
+            'HC' :      is the higher criticism statistic applies to the
+                    column 'pval'
+            'thresh' :  indicates whether a feature is below the HC 
+                        threshold (True) or not (False)
     """
     import pandas as pd
 
@@ -540,8 +514,7 @@ def two_sample_test_df(X, Y, gamma=0.25, min_cnt=0,
 
     counts['pval'], counts['p'] = two_sample_pvals(
         counts['n1'], counts['n2'],
-        randomize=randomize, alt=alt, ret_p=True
-        )
+        randomize=randomize, alt=alt, ret_p=True)
 
     counts['sign'] = np.sign(counts.n1 - (counts.n1 + counts.n2) * counts.p)
 
@@ -549,9 +522,12 @@ def two_sample_test_df(X, Y, gamma=0.25, min_cnt=0,
     pvals = counts.pval.values
     hc = HC(pvals[~np.isnan(pvals)], stbl=stbl)
     #hc_star, p_val_thresh = hc_vals(pvals, gamma=gamma, stbl=stbl)
-    hc_star, p_val_thresh = hc.HCstar(gamma=gamma)
+    if HCtype == 'original' :
+        hc, p_val_thresh = hc.HC(gamma=gamma)
+    else :
+        hc, p_val_thresh = hc.HCstar(gamma=gamma)
 
-    counts['HC'] = hc_star
+    counts['HC'] = hc
 
     counts['thresh'] = True
     counts.loc[counts['pval'] >= p_val_thresh, ('thresh')] = False
