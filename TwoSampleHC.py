@@ -56,9 +56,12 @@ class HC(object) :
         self._imin_jin = np.argmax(self._pvals > np.log(self._N) / self._N)
 
     def _calculateHC(self, imin, imax) :
-        if imin > imax :
+        if imin > imax:
             return np.nan
-        self._istar = np.argmax(self._zz[imin:imax]) + imin
+        if imin==imax:
+            self._istar = imin
+        else: 
+            self._istar = np.argmax(self._zz[imin:imax]) + imin
         zMaxStar = self._zz[self._istar]
         return zMaxStar, self._pvals[self._istar]
 
@@ -70,14 +73,13 @@ class HC(object) :
         -----
         'gamma' : lower fraction of P-values to consider
 
-        Returns:
+        Return:
         -------
         HC test score, P-value attaining it
 
         """
         imin = 0
-        imax = np.maximum(imin + 1,
-                        int(np.floor(gamma * self._N + 0.5)))        
+        imax = np.maximum(imin, int(gamma * self._N + 0.5))        
         return self._calculateHC(imin, imax)
 
     def HCjin(self, gamma=0.2) :
@@ -87,7 +89,7 @@ class HC(object) :
         -----
         'gamma' : lower fraction of P-values to consider
 
-        Returns:
+        Return:
         -------
         HC score, P-value attaining it
 
@@ -98,38 +100,46 @@ class HC(object) :
                         int(np.floor(gamma * self._N + 0.5)))
         return self._calculateHC(imin, imax)
     
-    def BJ(self, gamma=0.1) :
+    def berk_jones(self, gamma=1) :
         """
         Exact Berk-Jones statistic
+
+        According to Moscovich, Nadler, Spiegelman. (2013). 
+        On the exact Berk-Jones statistics and their p-value calculation
 
         Args:
         -----
         'gamma' : lower fraction of P-values to consider
 
-        Returns:
+        Return:
         -------
-        -log(BJ) score, P-value attaining it
+        -log(BJ) score (large values are significant) 
+        (has a scaled chisquared distribution under the null)
+
         """
 
-        spv = self._pvals
         N = self._N
 
         if N == 0 :
             return np.nan, np.nan
+    
+        max_i = max(1, int(gamma * N))
+
+        spv = self._pvals[:max_i]
+        ii = np.arange(1, max_i+1)
 
         bj = spv[0]
         p_th = spv[0]
-            
-        ii = np.arange(1, N + 1)
-        max_i = max(1, int(gamma * len(ii)))
-
-        if len(spv) >= 1 :
-            BJpv = beta.sf(spv, ii, N - ii + 1)[:max_i]
-            i_star = np.argmin(BJpv)
-            bj = BJpv[i_star]
-            p_th = spv[i_star]
         
-        return -np.log(bj), p_th
+        if len(spv) >= 1 :
+            BJpv = beta.cdf(spv, ii, N - ii + 1)
+            Mplus = np.min(BJpv)
+            Mminus = np.min(1 - BJpv)
+            bj = np.minimum(Mplus, Mminus)
+            
+        return -np.log(bj + self._EPS / 1000) # we add a tiny amount to avoide
+                                              # divide by zero warning when bj ~ 0
+
 
     def HCstar(self, gamma=0.2) :
         """sample-adjusted higher criticism score
@@ -149,13 +159,28 @@ class HC(object) :
                         int(np.floor(gamma * self._N + 0.5)))        
         return self._calculateHC(imin, imax)
 
-    def get_state(self) :
+    def get_state(self):
         return {'pvals' : self._pvals, 
                 'u' : self._uu,
                 'z' : self._zz,
                 'imin_star' : self._imin_star,
                 'imin_jin' : self._imin_jin,
                 }
+
+    def Bonf(self):
+        """
+        Bonferroni type inference
+        """
+        return -np.log(self._pvals[0])
+
+    def FDR(self):
+        """
+        False-discovery rate thresholding
+        """
+        vals = self._pvals / self._uu
+        self._istar = np.argmin(vals)
+        return vals[self._istar], self._pvals[self._istar]
+
 
 
 def two_sample_test(smp1, smp2, data_type = 'counts',
@@ -181,7 +206,7 @@ def two_sample_test(smp1, smp2, data_type = 'counts',
 
     stbl = kwargs.get('stbl', True)
     randomize = kwargs.get('randomize', False)
-    gamma = kwargs.get('gamma', 0.35)
+    gamma = kwargs.get('gamma', 0.2)
 
     smp1 = np.array(smp1)
     smp2 = np.array(smp2)
@@ -416,7 +441,7 @@ def binom_var_test_df(c1, c2, sym=False, max_m=-1) :
     n1 = df_hist[(df_hist.n1 == 1) & (df_hist.n2 == 0)].N.values
     n2 = df_hist[(df_hist.n1 == 0) & (df_hist.n2 == 1)].N.values
     if len(n1) + len(n2) >= 2 :
-        df_hist.loc[df_hist.m == 1,'pval'] = binom_test_two_sided(n1, n1 + n2 , 1/2)
+        df_hist.loc[df_hist.m == 1, 'pval'] = binom_test_two_sided(n1, n1 + n2 , 1/2)[0]
 
     return df_hist
 

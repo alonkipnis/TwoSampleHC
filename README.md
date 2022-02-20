@@ -17,6 +17,7 @@ More details and applications can be found in
 
 ## Example:
 ```
+from TwoSampleHC import two_sample_pvals, HC
 import numpy as np
 
 N = 1000 # number of features
@@ -25,7 +26,7 @@ n = 5 * N #number of samples
 P = 1 / np.arange(1,N+1) # Zipf base distribution
 P = P / P.sum()
 
-ep = 0.03 #fraction of features to perturb
+ep = 0.02 #fraction of features to perturb
 mu = 0.005 #intensity of perturbation
 
 TH = np.random.rand(N) < ep
@@ -38,9 +39,8 @@ smp_Q = np.random.multinomial(n, Q)  # sample from Q
 
 pv = two_sample_pvals(smp_Q, smp_P) # binomial P-values
 hc = HC(pv)
-hv_val, p_th = HC.HCstar(alpha = 0.25) # Small sample Higher Criticism test
+hc_val, p_th = hc.HCstar(gamma = 0.25) # Small sample Higher Criticism test
 
 print("TV distance between P and Q: ", 0.5*np.sum(np.abs(P-Q)))
-print("Higher-Criticism score for testing P == Q: ", HC)  
-# (HC score rarely goes above 2.5 if P == Q)
+print("Higher-Criticism score for testing P == Q: ", hc_val)  
 ```
