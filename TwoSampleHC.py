@@ -2,14 +2,13 @@ import numpy as np
 import pandas as pd
 from scipy.stats import binom, norm, poisson, beta
 
-class HC(object) :
+class HC(object):
     """
     Higher Criticism test 
 
     References:
-    [1] Donoho, D. L. and Jin, J.,
-     "Higher criticism for detecting sparse hetrogenous mixtures", 
-     Annals of Stat. 2004
+    [1] Donoho, D. L. and Jin, J., "Higher criticism for detecting sparse
+     hetrogenous mixtures", Annals of Stat. 2004
     [2] Donoho, D. L. and Jin, J. "Higher critcism thresholding: Optimal 
     feature selection when useful features are rare and weak", proceedings
     of the national academy of sciences, 2008.
@@ -27,33 +26,30 @@ class HC(object) :
     -------
         HC       HC and P-value attaining it
         HCstar   sample adjustet HC (HCdagger in [1])
-        HCjin    a version of HC from 
-                [2] Jiashun Jin and Wanjie Wang, "Influential features PCA for
-                 high dimensional clustering"
-        
+        HCjin    a version of HC from [3] (Jin & Wang 2016)
     """
+
     def __init__(self, pvals, stbl=True) :
 
         self._N = len(pvals)
-        assert(self._N >0)
-
-        EPS = 1 / self._N
-        self._EPS = EPS
+        assert (self._N > 0)
+        self._EPS = 1 / (1e4 + self._N ** 2)
         self._istar = 1
 
-        self._pvals = np.sort(np.asarray(pvals.copy()))
-        self._uu = np.linspace(1 / self._N, 1-EPS, self._N)
-    
+        self._sorted_pvals = np.sort(np.asarray(pvals.copy()))  # sorted P-values
+        self._uu = np.linspace(1 / self._N, 1, self._N)
+        self._uu[-1] -= self._EPS # we assume that the largest P-value
+                                  # has no effect on the results
         if stbl:
-            denom = np.sqrt(self._uu * (1 - self._uu)) 
+            denom = np.sqrt(self._uu * (1 - self._uu))
         else:
-            denom = np.sqrt(self._pvals * (1 - self._pvals)) 
+            denom = np.sqrt(self._sorted_pvals * (1 - self._sorted_pvals))
 
-        denom = np.maximum(denom, EPS)
-        self._zz = np.sqrt(self._N) * (self._uu - self._pvals) / denom 
+        self._zz = np.sqrt(self._N) * (self._uu - self._sorted_pvals) / denom
 
-        self._imin_star = np.argmax(self._pvals > (1-self._EPS)/ self._N)
-        self._imin_jin = np.argmax(self._pvals > np.log(self._N) / self._N)
+        self._imin_star = np.argmax(self._sorted_pvals > (1 - self._EPS) / self._N)
+        self._imin_jin = np.argmax(self._sorted_pvals > np.log(self._N) / self._N)
+
 
     def _calculateHC(self, imin, imax) :
         if imin > imax:
@@ -63,7 +59,7 @@ class HC(object) :
         else: 
             self._istar = np.argmax(self._zz[imin:imax]) + imin
         zMaxStar = self._zz[self._istar]
-        return zMaxStar, self._pvals[self._istar]
+        return zMaxStar, self._sorted_pvals[self._istar]
 
     def HC(self, gamma=0.2) : 
         """
@@ -100,47 +96,6 @@ class HC(object) :
                         int(np.floor(gamma * self._N + 0.5)))
         return self._calculateHC(imin, imax)
     
-    def berk_jones(self, gamma=1) :
-        """
-        Exact Berk-Jones statistic
-
-        According to Moscovich, Nadler, Spiegelman. (2013). 
-        On the exact Berk-Jones statistics and their p-value calculation
-
-        Args:
-        -----
-        'gamma' : lower fraction of P-values to consider
-
-        Return:
-        -------
-        -log(BJ) score (large values are significant) 
-        (has a scaled chisquared distribution under the null)
-
-        """
-
-        N = self._N
-
-        if N == 0 :
-            return np.nan, np.nan
-    
-        max_i = max(1, int(gamma * N))
-
-        spv = self._pvals[:max_i]
-        ii = np.arange(1, max_i+1)
-
-        bj = spv[0]
-        p_th = spv[0]
-        
-        if len(spv) >= 1 :
-            BJpv = beta.cdf(spv, ii, N - ii + 1)
-            Mplus = np.min(BJpv)
-            Mminus = np.min(1 - BJpv)
-            bj = np.minimum(Mplus, Mminus)
-            
-        return -np.log(bj + self._EPS / 1000) # we add a tiny amount to avoide
-                                              # divide by zero warning when bj ~ 0
-
-
     def HCstar(self, gamma=0.2) :
         """sample-adjusted higher criticism score
 
@@ -160,29 +115,14 @@ class HC(object) :
         return self._calculateHC(imin, imax)
 
     def get_state(self):
-        return {'pvals' : self._pvals, 
+        return {'pvals' : self._sorted_pvals, 
                 'u' : self._uu,
                 'z' : self._zz,
                 'imin_star' : self._imin_star,
                 'imin_jin' : self._imin_jin,
                 }
 
-    def Bonf(self):
-        """
-        Bonferroni type inference
-        """
-        return -np.log(self._pvals[0])
-
-    def FDR(self):
-        """
-        False-discovery rate thresholding
-        """
-        vals = self._pvals / self._uu
-        self._istar = np.argmin(vals)
-        return vals[self._istar], self._pvals[self._istar]
-
-
-
+    
 def two_sample_test(smp1, smp2, data_type = 'counts',
                          alt='two-sided', **kwargs) :
     """
@@ -224,14 +164,10 @@ def two_sample_test(smp1, smp2, data_type = 'counts',
 
 def hc_vals(pv, gamma=0.2, minPv='one_over_n', stbl=True):
     """
-    Higher Criticism test (see
-    [1] Donoho, D. L. and Jin, J.,
-     "Higher criticism for detecting sparse hetrogenous mixtures", 
-     Annals of Stat. 2004
-    [2] Donoho, D. L. and Jin, J. "Higher critcism thresholding: Optimal 
-    feature selection when useful features are rare and weak", proceedings
-    of the national academy of sciences, 2008.
-     )
+    This is the old version of the HC test that is now doen using 
+    the class HC. 
+
+    Higher Criticism test 
 
     Args:
     -----
@@ -262,7 +198,8 @@ def hc_vals(pv, gamma=0.2, minPv='one_over_n', stbl=True):
         ps_idx = np.argsort(pv)
         ps = pv[ps_idx]  #sorted pvals
 
-        uu = np.linspace(1 / n, 1-EPS, n)  #expectation of p-values under H0
+        uu = np.linspace(1 / n, 1-EPS, n)  #expectation of p-values under
+        # H0; largest P-value assumed to have not effect. 
         i_lim_up = np.maximum(int(np.floor(gamma * n + 0.5)), 1)
 
         ps = ps[:i_lim_up]
@@ -305,20 +242,6 @@ def binom_test(x, n, p, alt='greater') :
         return binom.sf(x, n, p) + binom.pmf(x, n, p)
     if alt == 'less' :
         return binom.cdf(x, n, p)
-
-def exact_multinomial_test(x, p) : # slow
-    import met
-    assert(len(x) == len(p))
-    
-    n_max = 50
-    p = np.array(p) / np.sum(p)
-    n = sum(x)
-    if n > n_max :
-        return chisquare(x, p * n)[1]
-    all_multi_cases = [tup[0] for tup in met.onesided_exact_likelihood(x, [1,1,1])]
-    probs = scipy.stats.multinomial.pmf(x=all_multi_cases, n=n, p=p)
-    pval = probs[probs <= probs[all_multi_cases.index(list(x))]].sum()
-    return pval
 
 
 def binom_test_two_sided_slow(x, n, p) :
